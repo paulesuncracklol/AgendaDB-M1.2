@@ -2,11 +2,13 @@ package agendadb.model;
 
 import java.util.ArrayList;
 import java.util.List;
+import agendadb.model.Direccion;
 
 public class Persona {
     private int id;
     private String nombre;
-    private String direccion;
+    private String direccion; // legacy/visual
+    private List<Direccion> direcciones = new ArrayList<>();
     private List<Telefono> telefonos = new ArrayList<>();
 
     public Persona(int id, String nombre, String direccion) {
@@ -24,9 +26,11 @@ public class Persona {
     public String getNombre() { return nombre; }
     public String getDireccion() { return direccion; }
     public List<Telefono> getTelefonos() { return telefonos; }
+    public List<Direccion> getDirecciones() { return direcciones; }
 
     public void setId(int id) { this.id = id; }
     public void setNombre(String nombre) { this.nombre = nombre; }
     public void setDireccion(String direccion) { this.direccion = direccion; }
     public void setTelefonos(List<Telefono> telefonos) { this.telefonos = telefonos; }
+    public void setDirecciones(List<Direccion> direcciones) { this.direcciones = direcciones; }
 }

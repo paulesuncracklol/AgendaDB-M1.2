@@ -2,7 +2,9 @@ package agendadb.ui;
 
 import agendadb.dao.PersonaDAO;
 import agendadb.model.Persona;
+import agendadb.model.Direccion;
 import agendadb.model.Telefono;
+import java.util.*;
 import javafx.application.Application;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -22,7 +24,7 @@ public class MainApp extends Application {
     private PersonaDAO dao = new PersonaDAO();
 
     private TextField nombreField = new TextField();
-    private TextField direccionField = new TextField();
+    private TextField direccionesField = new TextField(); // separa por coma o punto y coma
     private TextField telefonosField = new TextField(); // teléfonos separados por coma
 
     @Override
@@ -34,7 +36,7 @@ public class MainApp extends Application {
         TableColumn<Persona, String> colNombre = new TableColumn<>("Nombre");
         colNombre.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(c.getValue().getNombre()));
 
-        TableColumn<Persona, String> colDireccion = new TableColumn<>("Dirección");
+        TableColumn<Persona, String> colDireccion = new TableColumn<>("Direcciones");
         colDireccion.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty(c.getValue().getDireccion()));
 
         TableColumn<Persona, String> colTelefonos = new TableColumn<>("Teléfonos");
@@ -59,8 +61,8 @@ public class MainApp extends Application {
         form.setVgap(10);
         form.add(new Label("Nombre:"), 0, 0);
         form.add(nombreField, 1, 0);
-        form.add(new Label("Dirección:"), 0, 1);
-        form.add(direccionField, 1, 1);
+        form.add(new Label("Direcciones (coma/;):"), 0, 1);
+        form.add(direccionesField, 1, 1);
         form.add(new Label("Teléfonos (coma):"), 0, 2);
         form.add(telefonosField, 1, 2);
 
@@ -88,43 +90,62 @@ public class MainApp extends Application {
     }
 
     private void agregar() {
-        try {
-            Persona p = new Persona(nombreField.getText(), direccionField.getText());
-            Arrays.stream(telefonosField.getText().split(","))
+    try {
+        String nombre = nombreField.getText();
+        String rawDirs = direccionesField.getText();
+        String rawTels = telefonosField.getText();
+
+        Persona p = new Persona(0, nombre, "");
+        // direcciones
+        List<Direccion> dirs = parseDirecciones(rawDirs);
+        p.setDirecciones(dirs);
+        // legacy: guardar primera en columna Personas.direccion para compatibilidad
+        p.setDireccion(dirs.isEmpty() ? "" : dirs.get(0).getDireccion());
+        // teléfonos
+        if (rawTels != null && !rawTels.isBlank()) {
+            Arrays.stream(rawTels.split(","))
                     .map(String::trim)
                     .filter(s -> !s.isEmpty())
                     .forEach(t -> p.getTelefonos().add(new Telefono(p.getId(), t)));
-
-            dao.insertar(p);
-            cargarDatos();
-            limpiarCampos();
-        } catch (SQLException ex) {
-            mostrarError("Error al agregar: " + ex.getMessage());
         }
+
+        dao.insertar(p);
+        cargarDatos();
+        limpiarCampos();
+    } catch (SQLException ex) {
+        mostrarError("Error al agregar: " + ex.getMessage());
     }
+}
 
-    private void modificar() {
-        Persona sel = table.getSelectionModel().getSelectedItem();
-        if (sel == null) return;
 
-        try {
-            sel.setNombre(nombreField.getText());
-            sel.setDireccion(direccionField.getText());
-            sel.getTelefonos().clear();
-            Arrays.stream(telefonosField.getText().split(","))
-                    .map(String::trim)
-                    .filter(s -> !s.isEmpty())
-                    .forEach(t -> sel.getTelefonos().add(new Telefono(sel.getId(), t)));
 
-            dao.actualizar(sel);
-            cargarDatos();
-            limpiarCampos();
-        } catch (SQLException ex) {
-            mostrarError("Error al modificar: " + ex.getMessage());
-        }
+private void modificar() {
+    Persona sel = table.getSelectionModel().getSelectedItem();
+    if (sel == null) return;
+
+    try {
+        sel.setNombre(nombreField.getText());
+        // direcciones
+        List<Direccion> dirs = parseDirecciones(direccionesField.getText());
+        sel.setDirecciones(dirs);
+        sel.setDireccion(dirs.isEmpty() ? "" : dirs.get(0).getDireccion()); // legacy
+        // teléfonos
+        sel.getTelefonos().clear();
+        Arrays.stream(telefonosField.getText().split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .forEach(t -> sel.getTelefonos().add(new Telefono(sel.getId(), t)));
+
+        dao.actualizar(sel);
+        cargarDatos();
+        limpiarCampos();
+    } catch (SQLException ex) {
+        mostrarError("Error al modificar: " + ex.getMessage());
     }
+}
 
-    private void eliminar() {
+
+private void eliminar() {
         Persona sel = table.getSelectionModel().getSelectedItem();
         if (sel == null) return;
 
@@ -138,11 +159,23 @@ public class MainApp extends Application {
 
     private void limpiarCampos() {
         nombreField.clear();
-        direccionField.clear();
+        direccionesField.clear();
         telefonosField.clear();
     }
 
-    private void mostrarError(String msg) {
+    private List<Direccion> parseDirecciones(String raw) {
+    if (raw == null) return new ArrayList<>();
+    String[] parts = raw.split("[,;\n]+");
+    List<Direccion> list = new ArrayList<>();
+    for (String p : parts) {
+        String s = p.trim();
+        if (!s.isEmpty()) list.add(new Direccion(s));
+    }
+    return list;
+}
+
+private void mostrarError(String msg) {
+
         new Alert(Alert.AlertType.ERROR, msg).showAndWait();
     }
 

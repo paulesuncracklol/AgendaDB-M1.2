@@ -11,7 +11,7 @@ import java.util.List;
 public class PersonaDAO {
 
     public void insertar(Persona persona) throws SQLException {
-        String sql = "INSERT INTO Personas (nombre, direccion) VALUES (?, ?)";
+        String sql = "INSERT INTO Personas (nombre, direccion) VALUES (?, ?)"; // mantiene columna legacy para compatibilidad
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
@@ -26,6 +26,13 @@ public class PersonaDAO {
 
             for (Telefono tel : persona.getTelefonos()) {
                 insertarTelefono(conn, persona.getId(), tel.getTelefono());
+            }
+
+            // vincular direcciones (muchos-a-muchos)
+            agendadb.dao.DireccionDAO ddao = new agendadb.dao.DireccionDAO();
+            for (agendadb.model.Direccion d : persona.getDirecciones()) {
+                agendadb.model.Direccion real = ddao.crearSiNoExiste(d.getDireccion());
+                if (real != null) ddao.vincular(persona.getId(), real.getId());
             }
         }
     }
@@ -53,6 +60,12 @@ public class PersonaDAO {
                         rs.getString("direccion")
                 );
                 persona.setTelefonos(obtenerTelefonos(conn, persona.getId()));
+                // cargar direcciones
+                agendadb.dao.DireccionDAO ddao = new agendadb.dao.DireccionDAO();
+                persona.setDirecciones(ddao.obtenerPorPersona(persona.getId()));
+                // set legacy direccion como concatenación para mostrar en tabla
+                String legacy = String.join(" | ", persona.getDirecciones().stream().map(agendadb.model.Direccion::getDireccion).toList());
+                persona.setDireccion(legacy);
                 lista.add(persona);
             }
         }
@@ -77,7 +90,7 @@ public class PersonaDAO {
     }
 
     public void actualizar(Persona persona) throws SQLException {
-        String sql = "UPDATE Personas SET nombre=?, direccion=? WHERE id=?";
+        String sql = "UPDATE Personas SET nombre=?, direccion=? WHERE id=?"; // direccion guarda la primera dirección para compatibilidad
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
@@ -95,6 +108,13 @@ public class PersonaDAO {
             // insertar nuevos
             for (Telefono tel : persona.getTelefonos()) {
                 insertarTelefono(conn, persona.getId(), tel.getTelefono());
+            }
+
+            // vincular direcciones (muchos-a-muchos)
+            agendadb.dao.DireccionDAO ddao = new agendadb.dao.DireccionDAO();
+            for (agendadb.model.Direccion d : persona.getDirecciones()) {
+                agendadb.model.Direccion real = ddao.crearSiNoExiste(d.getDireccion());
+                if (real != null) ddao.vincular(persona.getId(), real.getId());
             }
         }
     }
